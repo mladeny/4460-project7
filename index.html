@@ -3,7 +3,7 @@
 <style>
 
 body {
-  font: 50px sans-serif;
+  font: 12px sans-serif;
 }
 
 .axis path,
@@ -17,18 +17,55 @@ body {
   fill: blue;
 }
 
+.bar:hover {
+  fill: orangered ;
+}
+
 .x.axis path {
   display: none;
+}
+
+
+.d3-tip {
+  line-height: 2;
+  font-weight: bold;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 4px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 12px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
 }
 
 </style>
 <body>
 <script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
 <script>
 
-var margin = {top: 20, right: 20, bottom: 30, left: 40},
+var margin = {top: 100, right: 20, bottom: 30, left: 40},
     width = 1000 - margin.left - margin.right,
     height = 550 - margin.top - margin.bottom;
+
+var formatPercent = d3.format(".0%");
 
 var x = d3.scale.ordinal()
     .rangeRoundBands([0, width], .1);
@@ -48,20 +85,36 @@ var yAxis = d3.svg.axis()
     .orient("left")
     .tickFormat(d3.format(".2s"));
 
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 d3.csv("US_medals.csv", function(error, data) {
   color.domain(d3.keys(data[0]).filter(function(key) { return key !== "Year" && key !== "Comments" && key !== "Games" && key !=="Total"; }));
 
   data.forEach(function(d) {
     var y0 = 0;
-    d.ages = color.domain().map(function(name) { return {name: name, y0: y0, y1: y0 += +d[name]}; });
-    d.total = d.ages[d.ages.length - 1].y1;
-  });
+    d.years = color.domain().map(function(name) { return {name: name, y0: y0, y1: y0 += +d[name]}; });
+    d.total = d.years[d.years.length - 1].y1;
+});
+
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([-10, 0])
+  .html(function(d) {
+    return "<strong>Medals:</strong> <span style='color:#E9FF24'>" + (d.y1 - d.y0) + "</span>";
+  })
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+svg.call(tip);
+
+
+
 
   data.sort(function(a, b) { return a.Year - b.Year; });
 
@@ -90,12 +143,14 @@ d3.csv("US_medals.csv", function(error, data) {
       .attr("transform", function(d) { return "translate(" + x(d.Year) + ",0)"; });
 
   year.selectAll("rect")
-      .data(function(d) { return d.ages; })
+      .data(function(d) { return d.years; })
     .enter().append("rect")
       .attr("width", x.rangeBand())
       .attr("y", function(d) { return y(d.y1); })
       .attr("height", function(d) { return y(d.y0) - y(d.y1); })
-      .style("fill", function(d) { return color(d.name); });
+      .style("fill", function(d) { return color(d.name); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide);
 
   var legend = svg.selectAll(".legend")
       .data(color.domain().slice().reverse())
@@ -115,6 +170,12 @@ d3.csv("US_medals.csv", function(error, data) {
       .attr("dy", ".35em")
       .style("text-anchor", "end")
       .text(function(d) { return d; });
+
+
+  function type(d) {
+  d.total = +d.total;
+  return d;
+}
 
 });
 
