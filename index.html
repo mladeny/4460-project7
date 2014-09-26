@@ -1,5 +1,17 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
+<head>
+  <meta charset="utf-8">
+  <title>jQuery UI Slider - Range slider</title>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.11.1/themes/smoothness/jquery-ui.css">
+  <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+  <script src="//code.jquery.com/ui/1.11.1/jquery-ui.js"></script>
+  <link rel="stylesheet" href="/resources/demos/style.css">
+	<script src="http://code.highcharts.com/highcharts.js"></script>
+	<script src="http://code.highcharts.com/modules/exporting.js"></script>
+
+
+</head>
 <style>
 
 body {
@@ -54,11 +66,50 @@ body {
   top: 100%;
   left: 0;
 }
+svg {
+	display:inline-block;
+}
+#container {
+	display:inline-block;
+}
 
 </style>
 <body>
 <script src="http://d3js.org/d3.v3.min.js"></script>
 <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+<h3 style="text-align:center;max-width:1000px;font-size:32px"> US Olympic Medals</h3>
+<div class="wrapper" style='margin-left:400px;width:500px'>
+	<p>
+	  <label for="amount">Filter by year range</label>
+	  <input type="text" id="amount" readonly style="border:0; color:#f6931f; font-weight:bold;">
+	</p>
+	
+	 
+	<div id="slider-range"></div>
+
+</div>
+<div id="container" style="min-width: 310px; height: 400px; max-width: 600px; margin: 0 auto"></div>	
+  <script>
+  $(function() {
+    $( "#slider-range" ).slider({
+      range: true,
+      min: 1896,
+      max: 2012,
+      step: 4,
+      values: [ 1896, 2012 ],
+      slide: function( event, ui ) {
+      	selected_min = ui.values[0];
+      	selected_max = ui.values[1];
+      	$("svg").remove();
+      	$("d3-top").remove();
+      	render();
+        $( "#amount" ).val( ui.values[ 0 ] + " - " + ui.values[ 1 ] );
+      }
+    });
+    $( "#amount" ).val( $( "#slider-range" ).slider( "values", 0 ) +
+      " - " + $( "#slider-range" ).slider( "values", 1 ) );
+  });
+  </script>
 <script>
 
 var margin = {top: 100, right: 20, bottom: 30, left: 40},
@@ -85,98 +136,192 @@ var yAxis = d3.svg.axis()
     .orient("left")
     .tickFormat(d3.format(".2s"));
 
+var silver_total = 0;
+var gold_total = 0;
+var bronze_total = 0;
 
-d3.csv("US_medals.csv", function(error, data) {
-  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "Year" && key !== "Comments" && key !== "Games" && key !=="Total"; }));
-
-  data.forEach(function(d) {
-    var y0 = 0;
-    d.years = color.domain().map(function(name) { return {name: name, y0: y0, y1: y0 += +d[name]}; });
-    d.total = d.years[d.years.length - 1].y1;
-});
+var parsed_data;
+var yr;
 
 
-var tip = d3.tip()
-  .attr('class', 'd3-tip')
-  .offset([-10, 0])
-  .html(function(d) {
-    return "<strong>Medals:</strong> <span style='color:#E9FF24'>" + (d.y1 - d.y0) + "</span>";
-  })
+var selected_min=1896;
+var selected_max=2012;
 
+function render() {
+	d3.csv("US_medals.csv", function(error, data) {
+    data = data.filter(function(d){
+        if(d.Year >= selected_min && d.Year <= selected_max){
+            return true;
+        } else {
+        	return false;
+        }
+    });
+    silver_total = 0;
+		gold_total = 0;
+		bronze_total = 0;
+	  color.domain(d3.keys(data[0]).filter(function(key) { return ["Bronze","Silver","Gold"].indexOf(key) > -1 }));
+	  parsed_data = data;
+	  data.forEach(function(d) {
+	    var y0 = 0;
+	    d.years = color.domain().map(function(name) { return {year: d.Year, bronze: d.Bronze, silver: d.Silver, gold: d.Gold,comments: d.Comments, name: name, y0: y0, y1: y0 += +d[name]}; });
+	    d.total = d.years[d.years.length - 1].y1;
+	    silver_total += Number(d.Silver);
+	    gold_total += Number(d.Gold);
+	    bronze_total += Number(d.Bronze);
+		});
+		
+		// alert(bronze_total);
+		// alert(gold_total);
+		// alert(silver_total);
+	
+	
+	var tip = d3.tip()
+	  .attr('class', 'd3-tip')
+	  .offset([-10, 0])
+	  .html(function(d) {
+	  	if (d.comments.length > 2)
+    		return "<span style='font-size:1.2em'>" + d.year + "</span><br/><strong>" + d.name + " medals:</strong> <span style='color:#E9FF24'>" + (d.y1 - d.y0) + "</span><br/><span style='color: rgb(0, 255, 0)'>"+ d.comments +  "<br/></span><span style='font-size:0.8em;'>Click for details</span>";
+			else
+	    	return "<span style='font-size:1.2em'>" + d.year + "</span><br/><strong>" + d.name + " medals:</strong> <span style='color:#E9FF24'>" + (d.y1 - d.y0) + "</span><br/><span style='font-size:0.8em;'>Click for details</span>";
+	  });
+	
+		
+		var svg = d3.select("body").append("svg")
+		    .attr("width", width + margin.left + margin.right)
+		    .attr("height", height + margin.top + margin.bottom)
+		  .append("g")
+		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+	
+	
+		svg.call(tip);
+	
+	
+	
+	
+	  data.sort(function(a, b) { return a.Year - b.Year; });
+	
+	  x.domain(data.map(function(d) { return d.Year; }));
+	  y.domain([0, d3.max(data, function(d) { return d.total; })]);
+	
+	  svg.append("g")
+	      .attr("class", "x axis")
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+	
+	  svg.append("g")
+	      .attr("class", "y axis")
+	      .call(yAxis)
+	    .append("text")
+	      .attr("transform", "rotate(-90)")
+	      .attr("y", 6)
+	      .attr("dy", ".71em")
+	      .style("text-anchor", "end")
+	      .text("Medals");
+	
+	  var year = svg.selectAll(".Year")
+	      .data(data)
+	    	.enter().append("g")
+	      .attr("class", "g")
+	      .attr("transform", function(d) { return "translate(" + x(d.Year) + ",0)"; })
 
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+	
+	  year.selectAll("rect")
+	      .data(function(d) { return d.years; })
+	    .enter().append("rect")
+      .style("outline", function(d) { 
+	      	if(d.comments.length > 2)
+	      		return "#00FF00 dotted thick";
+	      	else
+	      		return "none";
+	      		
+	      	})
+	      .attr("width", x.rangeBand())
+	      .attr("y", function(d) { return y(d.y1); })
+	      .attr("height", function(d) { return y(d.y0) - y(d.y1); })
+	      .style("fill", function(d) { return color(d.name); })
+	      .on('mouseover', tip.show)
+	      .on('mouseout', tip.hide)
+	      .on("click", function(d) {
 
-
-svg.call(tip);
-
-
-
-
-  data.sort(function(a, b) { return a.Year - b.Year; });
-
-  x.domain(data.map(function(d) { return d.Year; }));
-  y.domain([0, d3.max(data, function(d) { return d.total; })]);
-
-  svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis);
-
-  svg.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-    .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 6)
-      .attr("dy", ".71em")
-      .style("text-anchor", "end")
-      .text("Medals");
-
-  var year = svg.selectAll(".Year")
-      .data(data)
-    .enter().append("g")
-      .attr("class", "g")
-      .attr("transform", function(d) { return "translate(" + x(d.Year) + ",0)"; });
-
-  year.selectAll("rect")
-      .data(function(d) { return d.years; })
-    .enter().append("rect")
-      .attr("width", x.rangeBand())
-      .attr("y", function(d) { return y(d.y1); })
-      .attr("height", function(d) { return y(d.y0) - y(d.y1); })
-      .style("fill", function(d) { return color(d.name); })
-      .on('mouseover', tip.show)
-      .on('mouseout', tip.hide);
-
-  var legend = svg.selectAll(".legend")
-      .data(color.domain().slice().reverse())
-    .enter().append("g")
-      .attr("class", "legend")
-      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
-
-  legend.append("rect")
-      .attr("x", width - 18)
-      .attr("width", 18)
-      .attr("height", 18)
-      .style("fill", color);
-
-  legend.append("text")
-      .attr("x", width - 24)
-      .attr("y", 9)
-      .attr("dy", ".35em")
-      .style("text-anchor", "end")
-      .text(function(d) { return d; });
-
-
-  function type(d) {
-  d.total = +d.total;
-  return d;
+	      	var type1_percent = 0;
+	      	if(d.name == "Silver") {
+	      		type1_percent = (d.y1 - d.y0) / silver_total;
+	      	} else if (d.name == "Gold") {
+	      		type1_percent = (d.y1 - d.y0) / gold_total
+	      	} else if (d.name == "Bronze") {
+	      		type1_percent = (d.y1 - d.y0) / bronze_total;
+	      	}
+	      	
+	      	//d.year + " " + d.name + "Medals", d.year + " " d.name + " Medals", type1_percent, "All other " + d.name + " medals", 100.0 - type1_percent)
+	      	drawPieChart(d.year + " " + d.name + " Medals vs All Other Selected Years", d.year + " " + d.name + " Medals ", type1_percent, d.name + " Medals From All Other Selected Years", 1.00 - type1_percent);
+	      });
+	
+	  var legend = svg.selectAll(".legend")
+	      .data(color.domain().slice().reverse())
+	    .enter().append("g")
+	      .attr("class", "legend")
+	      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+	
+	  legend.append("rect")
+	      .attr("x", width - 18)
+	      .attr("width", 18)
+	      .attr("height", 18)
+	      .style("fill", color);
+	
+	  legend.append("text")
+	      .attr("x", width - 24)
+	      .attr("y", 9)
+	      .attr("dy", ".35em")
+	      .style("text-anchor", "end")
+	      .text(function(d) { return d; });
+	
+	});
+	
 }
 
-});
 
+
+render();
+
+function drawPieChart(title_text, type1_text, type1_data, total_text, total_data) {
+        $('#container').highcharts({
+            chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+                plotShadow: false
+            },
+            title: {
+                text: title_text
+            },
+            tooltip: {
+                pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: false
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                type: 'pie',
+                name: 'Percentage Won Out Of Selected Years',
+                data: [
+                    {
+                        name: type1_text,
+                        y: type1_data,
+                        sliced: true,
+                        selected: true
+                    },
+                    [total_text,    total_data]
+                ]
+            }]
+        });
+
+}
 </script>
+
+</body>
