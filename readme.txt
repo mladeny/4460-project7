@@ -1,7 +1,6 @@
 By Mladen Yakimov and Jay Patel
 
-github:
-https://github.com/GT565K/4460-project7
+
 
 Used jquery ui for slider and highcharts for linked pie chart in addition to creating a stacked bar chart with d3js
 
